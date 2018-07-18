@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
-using System.Net;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading;
 using NUnit.Framework;
 using OpenQA.Selenium;
@@ -22,145 +22,169 @@ namespace client.pik
 		public void Start()
 		{
 			ChromeOptions options = new ChromeOptions();
-			options.AddArgument("headless");
+			//options.AddArgument("headless");
 			driver = new ChromeDriver(options);
 			wait = new WebDriverWait(driver, TimeSpan.FromSeconds(15));
 			driver.Manage().Window.Size = new System.Drawing.Size(1500, 900);
 		}
 
 		[Test]
-		public void CheckNews()
+		public void DownloadSololearnCourse()
 		{
-			var users = CreateUsers();
-			var today = DateTime.Now;
+			LoginSoloLearn();
 
-			foreach (var user in users)
+			string book= string.Empty;
+
+			book += @"<html><head><title>Python Book from SoloLearn</title><link rel=""stylesheet"" href=""styles.css""></head><body><div>";
+
+			var bookName = "pythonBook.html";
+			FileInfo bookNameInfo = CreateFileInfoToAssemblyDirectory(bookName);
+
+			if (!bookNameInfo.Exists)
 			{
-				Login(user);
-				string flatNewsId = "";
-
-				var txtName = $"news_id_{user.Name}.txt";
-				FileInfo textFileInfo = CreateFileInfoToAssemblyDirectory(txtName);
-
-				if (!textFileInfo.Exists)
-				{
-					using (var f = File.Create(textFileInfo.FullName)) { }
-				}
-
-				var logName = "log.txt";
-				FileInfo logFileInfo = CreateFileInfoToAssemblyDirectory(logName);
-
-				if (!logFileInfo.Exists)
-				{
-					using (var f = File.Create(logFileInfo.FullName)) { }
-				}
-
-				var logsCountName = "logs_count.txt";
-				FileInfo logsCountFileInfo = CreateFileInfoToAssemblyDirectory(logsCountName);
-
-				if (!logsCountFileInfo.Exists)
-				{
-					using (var f = File.Create(logsCountFileInfo.FullName)) { };
-					File.WriteAllText(logsCountFileInfo.FullName, "0");
-				}
-
-				var continErrorsName = "errors_conti.txt";
-				FileInfo continErrorsInfo = CreateFileInfoToAssemblyDirectory(continErrorsName);
-
-				if (!continErrorsInfo.Exists)
-				{
-					using (var f = File.Create(continErrorsInfo.FullName)) { };
-					File.WriteAllText(continErrorsInfo.FullName, "0");
-				}
-
-				try
-				{
-					if (user.FlatGuid != null)
-					{
-						var newsIdString = File.ReadAllText(textFileInfo.FullName);
-
-						driver.Url = $"https://client.pik.ru/object/{user.FlatGuid}/news";
-						WaitForNewsPageLoad();
-						var newsFlatLinkParts = driver.FindElements(By.CssSelector("a.News-list--link"))[0].GetAttribute("href").Split('/');
-						flatNewsId = newsFlatLinkParts[newsFlatLinkParts.Length - 1];
-
-						if (newsIdString != flatNewsId)
-						{
-							var message = $"В личном кабинете ПИК есть свежие новости! https://client.pik.ru/object/{user.FlatGuid}/news";
-							SendTelegram(user, message);
-
-							File.WriteAllText(textFileInfo.FullName, flatNewsId);
-						}
-
-						driver.Url = $"https://client.pik.ru/object/{user.FlatGuid}/info";
-						wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector(".PropertiesList-blockName")));
-						wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector("button")));
-
-						Thread.Sleep(10000);
-						var buttonsCount = driver.FindElements(By.CssSelector("button")).Count;
-
-						if (buttonsCount != 13)
-						{
-							var message = $"В личном кабинете ПИК изменилось количество кнопок, ломись туда! https://client.pik.ru/object/{user.FlatGuid}/news";
-							SendTelegram(user, message);
-						}
-					}
-
-					if (user.PantryGuid != null)
-					{
-						var newsIdString = File.ReadAllText(textFileInfo.FullName);
-
-						driver.Url = $"https://client.pik.ru/object/{user.PantryGuid}/news";
-						WaitForNewsPageLoad();
-						var newsPantryLinkParts = driver.FindElements(By.CssSelector("a.News-list--link"))[0].GetAttribute("href").Split('/');
-						var pantryNewsId = newsPantryLinkParts[newsPantryLinkParts.Length - 1];
-
-						if (newsIdString != pantryNewsId)
-						{
-							var message = $"В личном кабинете ПИК есть свежие новости! https://client.pik.ru/object/{user.PantryGuid}/news";
-							SendTelegram(user, message);
-
-							File.WriteAllText(textFileInfo.FullName, flatNewsId);
-						}
-					}
-
-					Logout();
-
-					if (today.Hour == 17 && (today.Minute == 0))
-					{
-						var message = "В личном кабинете ПИК нет свежих новостей";
-						SendTelegram(user, message);
-					}
-
-					File.WriteAllText(continErrorsInfo.FullName, "0");
-				}
-
-				catch (Exception e)
-				{
-					var logsCount = Int32.Parse(File.ReadAllText(logsCountFileInfo.FullName));
-					logsCount++;
-
-					File.WriteAllText(logsCountFileInfo.FullName, logsCount.ToString());
-
-					File.AppendAllText(logFileInfo.FullName, Environment.NewLine + $"{today} - {e.Message}");
-
-					var contiErrorsCount = Int32.Parse(File.ReadAllText(continErrorsInfo.FullName));
-					contiErrorsCount++;
-
-					if (contiErrorsCount > 9)
-					{
-						SendTelegramToAdmin($"Тест зафейлился {contiErrorsCount} раз подряд!!! Нужно что-то сделать");
-						SendTelegramToAdmin($"Общее количество ошибок - {logsCount}, смотри файл лога");
-						contiErrorsCount = 0;
-					}
-
-					File.WriteAllText(continErrorsInfo.FullName, contiErrorsCount.ToString());
-				}
+				using (var f = File.Create(bookNameInfo.FullName)) { };
 			}
 
+			int modulesCount = driver.FindElements(By.CssSelector("div.appModuleCircle")).Count;
 
-			//var mess = "Тест прошёл успешно";
-			//Assert.Pass(mess);
+			int module = 0;
+			try
+			{
+				for (; module < modulesCount; module++)
+				{
+					if (module > 5)
+					{
+						var certElement = driver.FindElement(By.CssSelector(".certificate"));
+
+						IJavaScriptExecutor jse = (IJavaScriptExecutor)driver;
+						jse.ExecuteScript("arguments[0].scrollIntoView(true);", certElement);
+
+						// wait for scroll action
+						Thread.Sleep(500);
+					}
+					driver.FindElements(By.CssSelector("div.appModuleCircle"))[module].Click();
+
+					wait.Until(ExpectedConditions.VisibilityOfAllElementsLocatedBy(By.CssSelector(".appLesson.checkpoint")));
+					//Thread.Sleep(500);
+
+					string moduleName = $"<h1>Module {module + 1} - {driver.FindElement(By.CssSelector(".module.layer span.title")).Text}</h1>";
+					book += moduleName;
+
+					int lessonsCount = driver.FindElements(By.CssSelector(".appLesson.checkpoint")).Count;
+
+					int lesson = 0;
+					for (; lesson < lessonsCount; lesson++)
+					{
+						wait.Until(ExpectedConditions.VisibilityOfAllElementsLocatedBy(By.CssSelector(".appLesson.checkpoint")));
+						//Thread.Sleep(500);
+
+						string lessonName = $"<h2>Lesson {lesson + 1} - {driver.FindElements(By.CssSelector(".appLesson.checkpoint"))[lesson].FindElement(By.CssSelector("div.name")).Text}</h2>";
+						book += lessonName;
+
+						driver.FindElements(By.CssSelector(".appLesson.checkpoint"))[lesson].Click();
+
+						wait.Until(ExpectedConditions.VisibilityOfAllElementsLocatedBy(By.CssSelector("span.video")));
+						//Thread.Sleep(500);
+
+						int videosCount = driver.FindElements(By.CssSelector("span.video")).Count;
+
+						int video = 0;
+						for (; video < videosCount; video++)
+						{
+							wait.Until(ExpectedConditions.VisibilityOfAllElementsLocatedBy(By.CssSelector("span.video")));
+							//Thread.Sleep(500);
+
+							driver.FindElements(By.CssSelector("span.video"))[video].Click();
+
+							wait.Until(ExpectedConditions.VisibilityOfAllElementsLocatedBy(By.CssSelector("#textContent")));
+							//Thread.Sleep(500);
+
+							string content = driver.FindElement(By.CssSelector("#textContent")).GetAttribute("innerHTML");
+
+							content = content.Replace("<h1>","<h3>").Replace(@"</h1>", @"</h3>");
+
+							book += content;
+							Thread.Sleep(500);
+						}
+
+						driver.FindElement(By.CssSelector("#navigateBackButton")).Click();
+					}
+
+					driver.FindElement(By.CssSelector("#navigateBackButton")).Click();
+				}
+			}
+			catch (Exception e)
+			{
+				Assert.Warn("тест не завершился до конца | " + e.Message);
+			}
+			finally
+			{
+				book += @"</div></body></html>";
+
+				var s1 = "\\\"";
+				var s2 = "\\";
+				book.Replace(s1, s2);
+
+				//delete all "a" tags from book
+				var tryItButtonPattern = @"<a(.+?)(?=<)<\/a>";
+
+				book = Regex.Replace(book, tryItButtonPattern, String.Empty);
+
+				Regex.Replace(book,tryItButtonPattern,"");
+				File.WriteAllText(bookNameInfo.FullName, book);
+			}
+		}
+
+		[Test]
+		public void CheckRM()
+		{
+			var rmUser = new User
+			{
+				Name = "dkor",
+				Login = "",
+				Password = "",
+				ChatId = "168694373"
+			};
+
+			var continErrorsName = "RM_errors_conti.txt";
+			FileInfo continErrorsInfo = CreateFileInfoToAssemblyDirectory(continErrorsName);
+
+			if (!continErrorsInfo.Exists)
+			{
+				using (var f = File.Create(continErrorsInfo.FullName)) { };
+				File.WriteAllText(continErrorsInfo.FullName, "0");
+			}
+
+			try
+			{
+				LoginRM(rmUser);
+				File.WriteAllText(continErrorsInfo.FullName, "0");
+			}
+
+			catch (Exception e)
+			{
+				var contiErrorsCount = Int32.Parse(File.ReadAllText(continErrorsInfo.FullName));
+				contiErrorsCount++;
+
+				if (contiErrorsCount > 5)
+				{
+					SendTelegramToRMAdmins($"Не удалось зайти в систему Redmine {contiErrorsCount} раз подряд!!! Свяжитесь с Корнеевым Дмитрием");
+					contiErrorsCount = 0;
+				}
+
+				File.WriteAllText(continErrorsInfo.FullName, contiErrorsCount.ToString());
+			}
+		}
+
+		private void LoginSoloLearn()
+		{
+			driver.Url = "https://www.sololearn.com/Play/Python";
+			driver.FindElement(By.CssSelector(".btn.btn-default.facebook")).Click();
+			driver.FindElement(By.CssSelector("input#email")).SendKeys(Keys.Home + "");
+			driver.FindElement(By.CssSelector("input#pass")).SendKeys(Keys.Home + "");
+			driver.FindElement(By.CssSelector("#loginbutton")).Click();
+
+			wait.Until(ExpectedConditions.VisibilityOfAllElementsLocatedBy(By.CssSelector("div.appModuleCircle")));
 		}
 
 		private static FileInfo CreateFileInfoToAssemblyDirectory(string name)
@@ -171,75 +195,39 @@ namespace client.pik
 						name));
 		}
 
-		private void Logout()
-		{
-			wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector(".Header-logoutButton")));
-			driver.FindElement(By.CssSelector(".Header-logoutButton")).Click();
-			wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector("input#login")));
-		}
-
-		public static List<User> CreateUsers()
-		{
-			var users = new List<User>();
-
-
-
-			return users;
-		}
-
-		private void SendTelegram(User user, string message)
+		private void SendTelegramToRMAdmins(string message)
 		{
 			var telegramURL = @"https://api.telegram.org";
-			var token = ConfigurationManager.AppSettings["bot_token"];
-			var chat_id = user.ChatId;
-			string url = $"{telegramURL}/bot{token}/sendMessage?chat_id={chat_id}&text={message}";
-			driver.Url = url;
-			wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector("body > pre")));
-			driver.Url = "https://client.pik.ru/object";
+			var token = ConfigurationManager.AppSettings["RM_bot_token"];
 
-			/* using proxy
-			 
-			HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-			WebProxy myproxy = new WebProxy("10.14.188.239", 8080)
+			List<string> addressees = new List<string>
 			{
-				BypassProxyOnLocal = false
+				"168694373", //dkorneev
+				"347947909" //avb
 			};
 
-			request.Proxy = myproxy;
-			request.Method = "POST";
-			HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-			*/
+			foreach (string a in addressees)
+			{
+				string url = $"{telegramURL}/bot{token}/sendMessage?chat_id={a}&text={message}";
+				driver.Url = url;
+			}
 		}
 
-		private void SendTelegramToAdmin(string message)
-		{
-			var telegramURL = @"https://api.telegram.org";
-			var token = ConfigurationManager.AppSettings["bot_token"];
-			var chat_id = "168694373";
-			string url = $"{telegramURL}/bot{token}/sendMessage?chat_id={chat_id}&text={message}";
-			driver.Url = url;
-		}
-
-		private void WaitForNewsPageLoad()
-		{
-			wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector("a.News-list--link")));
-		}
-
-		private void Login(User user)
+		private void LoginRM(User user)
 		{
 			var login = user.Login;
 			var pass = user.Password;
 
-			if (login == "" || pass == "") { throw new System.ArgumentException("Please provide correct login data"); }
+			if (login == "" || pass == "") { throw new ArgumentException("Please provide correct login data"); }
 
-			driver.Url = "https://client.pik.ru/auth";
-			driver.FindElement(By.CssSelector("input#login")).SendKeys(Keys.Home + login);
+			driver.Url = "http://195.19.40.194:81/redmine/login";
+			driver.FindElement(By.CssSelector("input#username")).SendKeys(Keys.Home + login);
 			driver.FindElement(By.CssSelector("input#password")).SendKeys(Keys.Home + pass);
 
-			var oldPage = driver.FindElement(By.CssSelector("div.Page"));
+			var oldPage = driver.FindElement(By.CssSelector("form"));
 
-			driver.FindElement(By.CssSelector("button.Button.Button-marginBottom")).Click();
-			wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector(".Header-account--text")));
+			driver.FindElement(By.CssSelector(".us-log-in-btn")).Click();
+			wait.Until(ExpectedConditions.StalenessOf(oldPage));
 		}
 
 		[TearDown]

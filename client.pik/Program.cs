@@ -1,10 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
 using System.IO;
 using System.Reflection;
+<<<<<<< HEAD
 using System.Text.RegularExpressions;
 using System.Threading;
+=======
+>>>>>>> parent of 6cba918... worked version
 using NUnit.Framework;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
@@ -24,13 +25,13 @@ namespace client.pik
 			ChromeOptions options = new ChromeOptions();
 			//options.AddArgument("headless");
 			driver = new ChromeDriver(options);
-			wait = new WebDriverWait(driver, TimeSpan.FromSeconds(15));
-			driver.Manage().Window.Size = new System.Drawing.Size(1500, 900);
+			wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
 		}
 
 		[Test]
 		public void DownloadSololearnCourse()
 		{
+<<<<<<< HEAD
 			LoginSoloLearn();
 
 			string book= string.Empty;
@@ -201,11 +202,86 @@ namespace client.pik
 			var token = ConfigurationManager.AppSettings["RM_bot_token"];
 
 			List<string> addressees = new List<string>
+=======
+			Login();
+			string flatNewsId = "";
+
+			var textFileInfo =
+				new FileInfo(Path.Combine(
+					Path.GetDirectoryName(
+						Assembly.GetExecutingAssembly().Location),
+						@"news_id.txt"));
+
+			if (!textFileInfo.Exists)
+			{
+				using (var f = File.Create(textFileInfo.FullName)) { }
+			}
+			
+			var newsIdString = File.ReadAllText(textFileInfo.FullName);
+
+			var FlatNewsLink = "https://client.pik.ru/object/c8ac67d6-9831-e711-857e-001ec9d56418/news";
+			var pantryNewsLink = "https://client.pik.ru/object/d61206ad-e721-e811-b0fc-0050568859fb/news";
+
+			try
+			{
+				driver.Url = FlatNewsLink;
+				WaitForNewsPageLoad();
+				var newsFlatLinkParts = driver.FindElements(By.CssSelector("a.News-list--link"))[0].GetAttribute("href").Split('/');
+				flatNewsId = newsFlatLinkParts[newsFlatLinkParts.Length - 1];
+				Assert.AreEqual(newsIdString, flatNewsId, "по квартире");
+
+
+				driver.Url = pantryNewsLink;
+				WaitForNewsPageLoad();
+				var newsPantryLinkParts = driver.FindElements(By.CssSelector("a.News-list--link"))[0].GetAttribute("href").Split('/');
+				var pantryNewsId = newsPantryLinkParts[newsPantryLinkParts.Length - 1];
+				Assert.AreEqual(newsIdString, pantryNewsId, "по кладовке");
+			}
+			catch (AssertionException e)
+			{
+				var message = $"В личном кабинете ПИК есть свежие новости! {FlatNewsLink}";
+				SendTelegram(message);
+
+				using (var f = File.Create(textFileInfo.FullName)){}
+				File.WriteAllText(textFileInfo.FullName, flatNewsId);
+			}
+			catch (Exception e)
+			{
+				var message = $"Дружок, твой тест упал :( Смотри ошибку: {e.Message}";
+				SendTelegram(message);
+			}
+
+			var today = DateTime.Now;
+			if (today.Hour == 17 && (today.Minute == 0 || today.Minute == 1))
+			{
+				var message = "В личном кабинете ПИК нет свежих новостей";
+				SendTelegram(message);
+			}
+
+			var mess = "В личном кабинете ПИК нет свежих новостей";
+			Assert.Pass(mess);
+
+		}
+
+		private void SendTelegram(string message)
+		{
+			var telegramURL = @"https://api.telegram.org";
+			var token = "";
+			var chat_id = "";
+			string url = $"{telegramURL}/bot{token}/sendMessage?chat_id={chat_id}&text={message}";
+			driver.Url = url;
+
+			/* using proxy
+			 
+			HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+			WebProxy myproxy = new WebProxy("10.14.188.239", 8080)
+>>>>>>> parent of 6cba918... worked version
 			{
 				"168694373", //dkorneev
 				"347947909" //avb
 			};
 
+<<<<<<< HEAD
 			foreach (string a in addressees)
 			{
 				string url = $"{telegramURL}/bot{token}/sendMessage?chat_id={a}&text={message}";
@@ -214,9 +290,23 @@ namespace client.pik
 		}
 
 		private void LoginRM(User user)
+=======
+			request.Proxy = myproxy;
+			request.Method = "POST";
+			HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+			*/
+		}
+
+		private void WaitForNewsPageLoad()
 		{
-			var login = user.Login;
-			var pass = user.Password;
+			wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector("a.News-list--link")));
+		}
+
+		private void Login()
+>>>>>>> parent of 6cba918... worked version
+		{
+			var login = "";
+			var pass = "";
 
 			if (login == "" || pass == "") { throw new ArgumentException("Please provide correct login data"); }
 
@@ -226,8 +316,13 @@ namespace client.pik
 
 			var oldPage = driver.FindElement(By.CssSelector("form"));
 
+<<<<<<< HEAD
 			driver.FindElement(By.CssSelector(".us-log-in-btn")).Click();
 			wait.Until(ExpectedConditions.StalenessOf(oldPage));
+=======
+			driver.FindElement(By.CssSelector("button.Button.Button-marginBottom")).Click();
+			wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector(".DropdownLink-content")));
+>>>>>>> parent of 6cba918... worked version
 		}
 
 		[TearDown]

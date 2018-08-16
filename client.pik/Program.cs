@@ -33,6 +33,7 @@ namespace client.pik
 		{
 			var users = CreateUsers();
 			var today = DateTime.Now;
+			var nl = @"%0A";
 
 			foreach (var user in users)
 			{
@@ -86,24 +87,17 @@ namespace client.pik
 
 						if (newsIdString != flatNewsId)
 						{
+							var title = driver.FindElement(By.CssSelector("h3.News-one--title")).Text;
+							var content = driver.FindElement(By.CssSelector(".News-one--content")).Text;
+							var infoMessage = $"<b>{title}</b>{nl}{nl}{content}";
+
 							var message = $"В личном кабинете ПИК есть свежие новости! https://client.pik.ru/object/{user.FlatGuid}/news";
 							SendTelegram(user, message);
+							SendTelegram(user, infoMessage);
 
 							File.WriteAllText(textFileInfo.FullName, flatNewsId);
 						}
-
-						driver.Url = $"https://client.pik.ru/object/{user.FlatGuid}/info";
-						wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector(".PropertiesList-blockName")));
-						wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector("button")));
-
-						Thread.Sleep(10000);
-						var buttonsCount = driver.FindElements(By.CssSelector("button")).Count;
-
-						if (buttonsCount != 13)
-						{
-							var message = $"В личном кабинете ПИК изменилось количество кнопок, ломись туда! https://client.pik.ru/object/{user.FlatGuid}/news";
-							SendTelegram(user, message);
-						}
+						//CheckButtonsCount(user);
 					}
 
 					if (user.PantryGuid != null)
@@ -117,8 +111,13 @@ namespace client.pik
 
 						if (newsIdString != pantryNewsId)
 						{
+							var title = driver.FindElement(By.CssSelector("h3.News-one--title")).Text;
+							var content = driver.FindElement(By.CssSelector("News-one--content")).Text;
+							var infoMessage = $"<b>{title}</b>{nl}{nl}{content}";
+
 							var message = $"В личном кабинете ПИК есть свежие новости! https://client.pik.ru/object/{user.PantryGuid}/news";
 							SendTelegram(user, message);
+							SendTelegram(user, infoMessage);
 
 							File.WriteAllText(textFileInfo.FullName, flatNewsId);
 						}
@@ -137,14 +136,14 @@ namespace client.pik
 
 				catch (Exception e)
 				{
-					var logsCount = Int32.Parse(File.ReadAllText(logsCountFileInfo.FullName));
+					var logsCount = int.Parse(File.ReadAllText(logsCountFileInfo.FullName));
 					logsCount++;
 
 					File.WriteAllText(logsCountFileInfo.FullName, logsCount.ToString());
 
 					File.AppendAllText(logFileInfo.FullName, Environment.NewLine + $"{today} - {e.Message}");
 
-					var contiErrorsCount = Int32.Parse(File.ReadAllText(continErrorsInfo.FullName));
+					var contiErrorsCount = int.Parse(File.ReadAllText(continErrorsInfo.FullName));
 					contiErrorsCount++;
 
 					if (contiErrorsCount > 9)
@@ -157,10 +156,24 @@ namespace client.pik
 					File.WriteAllText(continErrorsInfo.FullName, contiErrorsCount.ToString());
 				}
 			}
-
-
 			//var mess = "Тест прошёл успешно";
 			//Assert.Pass(mess);
+		}
+
+		private void CheckButtonsCount(User user)
+		{
+			driver.Url = $"https://client.pik.ru/object/{user.FlatGuid}/info";
+			wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector(".PropertiesList-blockName")));
+			wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector("button")));
+
+			Thread.Sleep(10000);
+			var buttonsCount = driver.FindElements(By.CssSelector("button")).Count;
+
+			if (buttonsCount != 13)
+			{
+				var message = $"В личном кабинете ПИК изменилось количество кнопок, ломись туда! https://client.pik.ru/object/{user.FlatGuid}/news";
+				SendTelegram(user, message);
+			}
 		}
 
 		private static FileInfo CreateFileInfoToAssemblyDirectory(string name)
@@ -181,9 +194,17 @@ namespace client.pik
 		public static List<User> CreateUsers()
 		{
 			var users = new List<User>();
+			var dkor = new User
+			{
+				ChatId = "168694373",
+				FlatGuid = "c8ac67d6-9831-e711-857e-001ec9d56418",
+				PantryGuid = "d61206ad-e721-e811-b0fc-0050568859fb",
+				Name = "dkor",
+				Login = "", //without +7
+				Password = ""
+			};
 
-
-
+			users.Add(dkor);
 			return users;
 		}
 
@@ -192,7 +213,7 @@ namespace client.pik
 			var telegramURL = @"https://api.telegram.org";
 			var token = ConfigurationManager.AppSettings["bot_token"];
 			var chat_id = user.ChatId;
-			string url = $"{telegramURL}/bot{token}/sendMessage?chat_id={chat_id}&text={message}";
+			string url = $"{telegramURL}/bot{token}/sendMessage?chat_id={chat_id}&text={message}&parse_mode=HTML";
 			driver.Url = url;
 			wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector("body > pre")));
 			driver.Url = "https://client.pik.ru/object";

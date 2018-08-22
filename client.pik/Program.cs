@@ -4,6 +4,7 @@ using System.Configuration;
 using System.IO;
 using System.Net;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading;
 using NUnit.Framework;
 using OpenQA.Selenium;
@@ -74,6 +75,14 @@ namespace client.pik
 					File.WriteAllText(continErrorsInfo.FullName, "0");
 				}
 
+				var lastMessageId = "lastMessageId.txt";
+				FileInfo lMIdFileInfo = CreateFileInfoToAssemblyDirectory(lastMessageId);
+
+				if (!lMIdFileInfo.Exists)
+				{
+					using (var f = File.Create(lMIdFileInfo.FullName)) { }
+				}
+
 				try
 				{
 					if (user.FlatGuid != null)
@@ -128,7 +137,16 @@ namespace client.pik
 					if (today.Hour == 17 && (today.Minute == 0))
 					{
 						var message = "В личном кабинете ПИК нет свежих новостей";
-						SendTelegram(user, message);
+						var sentMsgId = SendTelegramWithId(user, message);
+
+						var lastSentMsgId = File.ReadAllText(lMIdFileInfo.FullName);
+
+						if (lastSentMsgId.Length != 0)
+						{
+							DeleteTelegramMessage(user, lastSentMsgId);
+						}
+
+						File.WriteAllText(lMIdFileInfo.FullName, sentMsgId);
 					}
 
 					File.WriteAllText(continErrorsInfo.FullName, "0");
@@ -158,6 +176,17 @@ namespace client.pik
 			}
 			//var mess = "Тест прошёл успешно";
 			//Assert.Pass(mess);
+		}
+
+		private void DeleteTelegramMessage(User user, string messageId)
+		{
+			var telegramURL = @"https://api.telegram.org";
+			var token = ConfigurationManager.AppSettings["bot_token"];
+			var chat_id = user.ChatId;
+			string url = $"{telegramURL}/bot{token}/deleteMessage?chat_id={chat_id}&message_id={messageId}";
+			driver.Url = url;
+			wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector("body > pre")));
+			//driver.Url = "https://client.pik.ru/object";
 		}
 
 		private void CheckButtonsCount(User user)
@@ -230,6 +259,23 @@ namespace client.pik
 			request.Method = "POST";
 			HttpWebResponse response = (HttpWebResponse)request.GetResponse();
 			*/
+		}
+		private string SendTelegramWithId(User user, string message)
+		{
+			var telegramURL = @"https://api.telegram.org";
+			var token = ConfigurationManager.AppSettings["bot_token"];
+			var chat_id = user.ChatId;
+			string url = $"{telegramURL}/bot{token}/sendMessage?chat_id={chat_id}&text={message}&parse_mode=HTML";
+			driver.Url = url;
+
+			var response = driver.FindElement(By.CssSelector("body")).Text;
+			var msgIdPattern = @"(message_id"":\d*)";
+			var msgIdSentence = Regex.Match(response, msgIdPattern).Value;
+
+			var msgId = msgIdSentence.Split(':')[1];
+
+			wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector("body > pre")));
+			return msgId;
 		}
 
 		private void SendTelegramToAdmin(string message)

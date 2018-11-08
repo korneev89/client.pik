@@ -97,8 +97,16 @@ namespace client.pik
 						if (newsIdString != flatNewsId)
 						{
 							var title = driver.FindElement(By.CssSelector("h3.News-one--title")).Text;
-							var content = driver.FindElement(By.CssSelector(".News-one--content")).Text;
-							var infoMessage = $"<b>{title}</b>{nl}{nl}{content}";
+
+							var beautyContent = "";
+							var contentParts = driver.FindElements(By.CssSelector(".News-one--content div, .News-one--content p"));
+							foreach (var part in contentParts)
+							{
+								beautyContent += $"{part.Text}{nl}";
+							}
+
+							//var content = driver.FindElement(By.CssSelector(".News-one--content")).Text;
+							var infoMessage = $"<b>{title}</b>{nl}{nl}{beautyContent}";
 
 							var message = $"В личном кабинете ПИК есть свежие новости! https://client.pik.ru/object/{user.FlatGuid}/news";
 							SendTelegram(user, message);
@@ -121,8 +129,15 @@ namespace client.pik
 						if (newsIdString != pantryNewsId)
 						{
 							var title = driver.FindElement(By.CssSelector("h3.News-one--title")).Text;
-							var content = driver.FindElement(By.CssSelector("News-one--content")).Text;
-							var infoMessage = $"<b>{title}</b>{nl}{nl}{content}";
+
+							var beautyContent = "";
+							var contentParts = driver.FindElements(By.CssSelector(".News-one--content div, .News-one--content p"));
+							foreach (var part in contentParts)
+							{
+								beautyContent += $"{part.Text}{nl}";
+							}
+							
+							var infoMessage = $"<b>{title}</b>{nl}{nl}{beautyContent}";
 
 							var message = $"В личном кабинете ПИК есть свежие новости! https://client.pik.ru/object/{user.PantryGuid}/news";
 							SendTelegram(user, message);

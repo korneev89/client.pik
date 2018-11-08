@@ -83,6 +83,14 @@ namespace client.pik
 					using (var f = File.Create(lMIdFileInfo.FullName)) { }
 				}
 
+				var activeSteps = "activesteps.txt";
+				FileInfo activeStepsFileInfo = CreateFileInfoToAssemblyDirectory(activeSteps);
+
+				if (!activeStepsFileInfo.Exists)
+				{
+					using (var f = File.Create(activeStepsFileInfo.FullName)) { }
+				}
+
 				try
 				{
 					if (user.FlatGuid != null)
@@ -114,7 +122,30 @@ namespace client.pik
 
 							File.WriteAllText(textFileInfo.FullName, flatNewsId);
 						}
-						//CheckButtonsCount(user);
+
+						///check status
+
+						var statusLink = $"https://client.pik.ru/object/{user.FlatGuid}/status";
+						driver.Url = statusLink;
+
+						wait.Until(ExpectedConditions.PresenceOfAllElementsLocatedBy(By.CssSelector(".StatusDealPage-circle--active")));
+						int activeStatusCount = driver.FindElements(By.CssSelector(".StatusDealPage-circle--active")).Count;
+
+						var activeStepsFromFile = File.ReadAllText(activeStepsFileInfo.FullName);
+
+						if (activeStepsFromFile.Length != 0)
+						{
+							if (int.Parse(activeStepsFromFile) != activeStatusCount)
+							{
+								var msg = $"В личном кабинете ПИК изменилось количество статусов ({activeStepsFromFile} ➡️ {activeStatusCount}) {statusLink}";
+								SendTelegram(user, msg);
+								File.WriteAllText(activeStepsFileInfo.FullName, activeStatusCount.ToString());
+							}
+						}
+						else
+						{
+							File.WriteAllText(activeStepsFileInfo.FullName, activeStatusCount.ToString());
+						}
 					}
 
 					if (user.PantryGuid != null)
